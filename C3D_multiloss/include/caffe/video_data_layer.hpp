@@ -48,6 +48,7 @@ class VideoDataLayer : public Layer<Dtype> {
   virtual ~VideoDataLayer();
   virtual void SetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top);
+  int lines_id_;
 
  protected:
   virtual Dtype Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -67,10 +68,11 @@ class VideoDataLayer : public Layer<Dtype> {
   vector<string> file_list_;
   vector<int> start_frm_list_;
   vector<int> label_list_;
-  vector<float> overlap_list_;	// 100515
+  // vector<float> overlap_list_;	// 100515
+  vector<float> vecoverlap_list_;
   vector<int> individual_sampling_rate_list_;	// 090515
   vector<int> shuffle_index_;
-  int lines_id_;
+  // int lines_id_;
 
   int datum_channels_;
   int datum_length_;
@@ -80,7 +82,7 @@ class VideoDataLayer : public Layer<Dtype> {
   pthread_t thread_;
   shared_ptr<Blob<Dtype> > prefetch_data_;
   shared_ptr<Blob<Dtype> > prefetch_label_;
-  shared_ptr<Blob<Dtype> > prefetch_overlap_;	// 100515
+  shared_ptr<Blob<Dtype> > prefetch_tbbox_;	// 100515
   Blob<Dtype> data_mean_;
   bool output_labels_;
   Caffe::Phase phase_;

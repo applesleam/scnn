@@ -181,7 +181,7 @@ bool ReadVideoToVolumeDatum(const char* filename, const int start_frm, const int
 }
 
 bool ReadImageSequenceToVolumeDatum(const char* img_dir, const int start_frm, const int label,
-		const int length, const int height, const int width, const int sampling_rate, VolumeDatum* datum, const float overlap){ // 100515
+		const int length, const int height, const int width, const int sampling_rate, VolumeDatum* datum, const std::vector<float> overlap){ // 100515
 	char fn_im[256];
 	cv::Mat img, img_origin;
 	char *buffer;
@@ -190,7 +190,11 @@ bool ReadImageSequenceToVolumeDatum(const char* img_dir, const int start_frm, co
 	datum->set_channels(3);
 	datum->set_length(length);
 	datum->set_label(label);
-	datum->set_overlap(overlap);	// 100515
+	// datum->set_overlap(overlap);	// 100515
+	datum->mutable_overlap()->Clear();
+	for (int i=0; i<overlap.size(); i++){
+		datum->add_overlap(overlap[i]);
+	}
 	datum->clear_data();
 	datum->clear_float_data();
 	  

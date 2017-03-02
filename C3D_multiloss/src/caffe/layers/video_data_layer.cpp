@@ -53,10 +53,10 @@ void* VideoDataLayerPrefetch(void* layer_pointer) {
   CHECK(layer->prefetch_data_);
   Dtype* top_data = layer->prefetch_data_->mutable_cpu_data();
   Dtype* top_label;
-  Dtype* top_overlap;	// 100515
+  Dtype* top_tbbox;	// 100515
   if (layer->output_labels_) {
     top_label = layer->prefetch_label_->mutable_cpu_data();
-    top_overlap = layer->prefetch_overlap_->mutable_cpu_data();	// 100515
+    top_tbbox = layer->prefetch_tbbox_->mutable_cpu_data();	// 100515
   }
   const Dtype scale = layer->layer_param_.image_data_param().scale();
   const int batch_size = layer->layer_param_.image_data_param().batch_size();
@@ -102,7 +102,7 @@ void* VideoDataLayerPrefetch(void* layer_pointer) {
     else {
     	if (!use_temporal_jitter) {
     		read_status = ReadImageSequenceToVolumeDatum(layer->file_list_[id].c_str(), layer->start_frm_list_[id],
-    	    	    		layer->label_list_[id], new_length, new_height, new_width, layer->individual_sampling_rate_list_[id], &datum, layer->overlap_list_[id]); 	// 100515
+    	    	    		layer->label_list_[id], new_length, new_height, new_width, layer->individual_sampling_rate_list_[id], &datum, layer->vecoverlap_list_[id]); 	// 100515
     	} else {
     		int num_of_frames = layer->start_frm_list_[id];
     		int use_start_frame;
@@ -116,7 +116,7 @@ void* VideoDataLayerPrefetch(void* layer_pointer) {
     				use_start_frame = 0;
 
     			read_status = ReadImageSequenceToVolumeDatum(layer->file_list_[id].c_str(), use_start_frame,
-    			    	    	    		layer->label_list_[id], new_length, new_height, new_width, layer->individual_sampling_rate_list_[id], &datum, layer->overlap_list_[id]); 	// 100515
+    			    	    	    		layer->label_list_[id], new_length, new_height, new_width, layer->individual_sampling_rate_list_[id], &datum, layer->vecoverlap_list_[id]); 	// 100515
     		}
     	}
     }
@@ -236,11 +236,14 @@ void* VideoDataLayerPrefetch(void* layer_pointer) {
     }
     if (layer->output_labels_) {
       top_label[item_id] = datum.label();
-	  top_overlap[item_id] = datum.overlap();	// 100515
+      for (int i=0; i<datum.tbbox_size(); i++){
+          top_tbbox[item_id*datum.tbbox_size() + i] = datum.tbbox(i)
+      }
+      // top_overlap[item_id] = datum.overlap();	// 100515
     }
 
-    //LOG(INFO) << "top_label[item_id] " << top_label[item_id];
-	//LOG(INFO) << "top_overlap[item_id] " << top_overlap[item_id];
+    LOG(INFO) << "top_label[item_id] " << top_label[item_id];
+	  LOG(INFO) << "top_tbbox[item_id] " << top_tbbox[item_id];
 	
     layer->lines_id_++;
     if (layer->lines_id_ >= chunks_size) {
@@ -291,8 +294,7 @@ void VideoDataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   int count = 0;
   string filename;
   int start_frm, label, individual_sampling_rate; 	// 090515
-  float overlap;	// 100515
-
+  float tbbox_x, tbbox_l;	// 100515
 
   if ((!use_image) && use_temporal_jitter){
 	  while (infile >> filename >> label) {
@@ -302,12 +304,14 @@ void VideoDataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
 		  count++;
 	  }
   } else {		// this is use image seq case 090515	!
-	  while (infile >> filename >> start_frm >> label >> individual_sampling_rate >> overlap) {	// 100515 define the order to read from txt dir file
+	  while (infile >> filename >> start_frm >> label >> individual_sampling_rate >> tbbox_x >> tbbox_l) {	// 100515 define the order to read from txt dir file
 		  file_list_.push_back(filename);
 		  start_frm_list_.push_back(start_frm);
 		  label_list_.push_back(label);
-		  overlap_list_.push_back(overlap);	// 100515
-		  individual_sampling_rate_list_.push_back(individual_sampling_rate);
+		  // overlap_list_.push_back(overlap);	// 100515
+		  vecoverlap_list_.push_back(tbbox_x);
+      vecoverlap_list_.push_back(tbbox_l);
+      individual_sampling_rate_list_.push_back(individual_sampling_rate);
 		  shuffle_index_.push_back(count);
 		  count++;
 	  }
@@ -351,7 +355,7 @@ void VideoDataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   }
   else{
 	  CHECK(ReadImageSequenceToVolumeDatum(file_list_[id].c_str(), 1, label_list_[id],
-	                             new_length, new_height, new_width,  sampling_rate, &datum, overlap_list_[id]));	// 100515
+	                             new_length, new_height, new_width,  sampling_rate, &datum, vecoverlap_list_[id]));	// 100515
   }
 
   // image
@@ -382,7 +386,7 @@ void VideoDataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   // overlap 100515
   if (1) {
     (*top)[2]->Reshape(this->layer_param_.image_data_param().batch_size(), 21, 1, 1, 1);
-    prefetch_overlap_.reset(
+    prefetch_tbbox_.reset(
         new Blob<Dtype>(this->layer_param_.image_data_param().batch_size(), 21, 1, 1, 1));
   }
 
@@ -425,7 +429,7 @@ void VideoDataLayer<Dtype>::SetUp(const vector<Blob<Dtype>*>& bottom,
   prefetch_data_->mutable_cpu_data();
   if (output_labels_) {
     prefetch_label_->mutable_cpu_data();
-	prefetch_overlap_->mutable_cpu_data();	// 100515
+	prefetch_tbbox_->mutable_cpu_data();	// 100515
   }
   data_mean_.cpu_data();
   DLOG(INFO) << "Initializing prefetch";
@@ -475,7 +479,7 @@ Dtype VideoDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   if (output_labels_) {
     caffe_copy(prefetch_label_->count(), prefetch_label_->cpu_data(),
                (*top)[1]->mutable_cpu_data());	// 100515
-    caffe_copy(prefetch_overlap_->count(), prefetch_overlap_->cpu_data(),
+    caffe_copy(prefetch_tbbox_->count(), prefetch_tbbox_->cpu_data(),
                (*top)[2]->mutable_cpu_data());	// 100515
   }
   // Start a new prefetch thread

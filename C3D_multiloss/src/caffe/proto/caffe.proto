@@ -28,7 +28,8 @@ message VolumeDatum {
   optional int32 label = 6;
   // Optionally, the datum could also hold float data.
   repeated float float_data = 7;
-  optional float overlap = 8; 	// 100515
+  // optional float overlap = 8; 	// 100515
+  repeated float tbbox = 8;
 }
 
 message Datum {

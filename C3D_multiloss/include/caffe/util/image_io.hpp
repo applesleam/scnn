@@ -52,10 +52,10 @@ inline bool ReadVideoToVolumeDatum(const char* filename, const int start_frm, co
 }
 
 bool ReadImageSequenceToVolumeDatum(const char* img_dir, const int start_frm, const int label,
-		const int length, const int height, const int width, const int sampling_rate, VolumeDatum* datum, const float overlap);	// 100515
+		const int length, const int height, const int width, const int sampling_rate, VolumeDatum* datum, const std::vector<float> overlap);	// 100515
 
 inline bool ReadImageSequenceToVolumeDatum(const char* img_dir, const int start_frm, const int label,
-		const int length, const int sampling_rate, VolumeDatum* datum, const float overlap){
+		const int length, const int sampling_rate, VolumeDatum* datum, const std::vector<float> overlap){
 	return ReadImageSequenceToVolumeDatum(img_dir, start_frm, label, length, 0, 0, sampling_rate, datum, overlap);	// 100515
 }
 
